@@ -1,0 +1,17 @@
+<script setup lang="ts">
+import { cn } from "@/lib/utils"
+</script>
+
+<template>
+  <tfoot
+    data-slot="table-footer"
+    :class="
+      cn(
+        'bg-muted/50 border-t font-medium [&>tr]:last:border-b-0',
+        ($attrs.class as string)
+      )
+    "
+  >
+    <slot />
+  </tfoot>
+</template>
