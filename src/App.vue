@@ -6,21 +6,21 @@ import UploadCard from "./components/UploadCard.vue"
 import SearchCard from "./components/SearchCard.vue"
 import ResultsTable from "./components/ResultsTable.vue"
 
-interface Employee {
-  id: string
-  name: string
-  department: string
-  position: string
-  salary: string
-  hireDate: string
+interface Movimiento {
+  tienda: string
+  empleado: string
+  descripcion: string
+  monto: number
+  at: string
+  plaza: string
 }
 
-const searchResult = ref<Employee | null>(null)
+const movimientos = ref<Movimiento[]>([])
 const notFound = ref(false)
 const hasSearched = ref(false)
 
-const handleSearchResult = (payload: { employee: Employee | null; notFound: boolean }) => {
-  searchResult.value = payload.employee
+const handleSearchResult = (payload: { movimientos: Movimiento[]; notFound: boolean }) => {
+  movimientos.value = payload.movimientos
   notFound.value = payload.notFound
   hasSearched.value = true
 }
@@ -41,7 +41,7 @@ const handleSearchResult = (payload: { employee: Employee | null; notFound: bool
 
         <!-- Tabla de resultados (siempre visible) -->
         <ResultsTable
-          :employee="searchResult"
+          :movimientos="movimientos"
           :notFound="notFound"
           :hasSearched="hasSearched"
         />

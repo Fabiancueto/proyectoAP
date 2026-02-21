@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref } from "vue"
 import { FileSpreadsheet, Upload, CheckCircle, AlertCircle, Loader2 } from "lucide-vue-next"
+import { subirCSV } from "../service/api.js"
 
 type UploadState = "idle" | "loading" | "success" | "error"
 
 const uploadState = ref<UploadState>("idle")
 const isDragging = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
+const selectedFile = ref<File | null>(null)
+const uploadMessage = ref("")
 
 const handleDragOver = (e: DragEvent) => {
   e.preventDefault()
@@ -22,25 +25,39 @@ const handleDrop = (e: DragEvent) => {
   isDragging.value = false
   const files = e.dataTransfer?.files
   if (files && files.length > 0) {
-    simulateUpload()
+    selectedFile.value = files[0]
+    uploadCSV()
   }
 }
 
 const handleFileSelect = (e: Event) => {
   const target = e.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
-    simulateUpload()
+    selectedFile.value = target.files[0]
+    uploadCSV()
   }
 }
 
-const simulateUpload = () => {
+const uploadCSV = async () => {
+  if (!selectedFile.value) return
+
   uploadState.value = "loading"
-  setTimeout(() => {
+  uploadMessage.value = ""
+
+  try {
+    const result = await subirCSV(selectedFile.value)
     uploadState.value = "success"
+    uploadMessage.value = result.message || "Datos actualizados correctamente."
+
     setTimeout(() => {
       uploadState.value = "idle"
-    }, 3000)
-  }, 2000)
+      selectedFile.value = null
+      if (fileInput.value) fileInput.value.value = ""
+    }, 4000)
+  } catch (err: any) {
+    uploadState.value = "error"
+    uploadMessage.value = err.message || "Error al subir el archivo."
+  }
 }
 
 const triggerFileInput = () => {
@@ -88,6 +105,9 @@ const triggerFileInput = () => {
         <span class="text-[#D50000] font-semibold">Haz clic</span>
         para subir
       </p>
+      <p v-if="selectedFile" class="mt-2 text-sm text-gray-500">
+        {{ selectedFile.name }}
+      </p>
     </div>
 
     <!-- Botón de subir -->
@@ -117,7 +137,7 @@ const triggerFileInput = () => {
       <CheckCircle class="w-5 h-5 text-green-600 flex-shrink-0" />
       <p class="text-sm">
         <span class="text-green-600 font-semibold">¡Carga exitosa!</span>
-        Datos actulzados correctamente.
+        {{ uploadMessage }}
       </p>
     </div>
 
@@ -128,7 +148,7 @@ const triggerFileInput = () => {
     >
       <AlertCircle class="w-5 h-5 text-red-600 flex-shrink-0" />
       <p class="text-sm text-red-800">
-        Error al subir. Revisa el formato del archivo e intenta de nuevo.
+        {{ uploadMessage || "Error al subir. Revisa el formato del archivo e intenta de nuevo." }}
       </p>
     </div>
   </div>
