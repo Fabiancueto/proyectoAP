@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 148" width="340" height="148">
+  <!-- Fondo amarillo redondeado -->
+  <rect x="0" y="0" width="340" height="148" rx="24" ry="24" fill="#F5A800"/>
+
+  <!-- Banda blanca superior -->
+  <rect x="0" y="22" width="340" height="11" fill="white"/>
+
+  <!-- Banda roja central -->
+  <rect x="0" y="33" width="340" height="82" fill="#E8212A"/>
+
+  <!-- Banda blanca inferior -->
+  <rect x="0" y="115" width="340" height="11" fill="white"/>
+
+  <!-- Letras OXXO en blanco -->
+
+  <!-- O izquierda -->
+  <circle cx="52" cy="74" r="35" fill="none" stroke="white" stroke-width="18"/>
+
+  <!-- X izquierda -->
+  <line x1="108" y1="39" x2="162" y2="109" stroke="white" stroke-width="18" stroke-linecap="round"/>
+  <line x1="162" y1="39" x2="108" y2="109" stroke="white" stroke-width="18" stroke-linecap="round"/>
+
+  <!-- X derecha -->
+  <line x1="178" y1="39" x2="232" y2="109" stroke="white" stroke-width="18" stroke-linecap="round"/>
+  <line x1="232" y1="39" x2="178" y2="109" stroke="white" stroke-width="18" stroke-linecap="round"/>
+
+  <!-- O derecha -->
+  <circle cx="288" cy="74" r="35" fill="none" stroke="white" stroke-width="18"/>
+</svg>

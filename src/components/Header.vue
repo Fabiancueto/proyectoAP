@@ -1,8 +1,13 @@
 <script setup lang="ts">
+import { LogOut, BarChart2, Home } from 'lucide-vue-next'
+import { RouterLink } from 'vue-router'
+
 const navItems = [
-  { label: "Inicio", href: "#" },
-  { label: "Buscar Empleado", href: "#" },
+  { label: 'Inicio', to: { name: 'home' }, icon: Home },
+  { label: 'Gráfica', to: { name: 'graficas' }, icon: BarChart2 },
 ]
+
+defineEmits<{ (e: 'logout'): void }>()
 </script>
 
 <template>
@@ -14,26 +19,33 @@ const navItems = [
 
       <!-- Logo OXXO -->
       <div class="flex items-center">
-        <img
-          src="/oxxo-logo.png"
-          alt="OXXO"
-          class="h-10 w-auto"
-        />
+        <img src="/oxxo-logo.png" alt="OXXO" class="h-10 w-auto" />
       </div>
 
-      <!-- Navegación -->
+      <!-- Navegación + Logout -->
       <nav class="flex items-center gap-8">
-        <a
+        <RouterLink
           v-for="item in navItems"
           :key="item.label"
-          :href="item.href"
-          class="text-white relative group transition-colors duration-200"
+          :to="item.to"
+          class="flex items-center gap-1.5 text-white relative group transition-colors duration-200"
+          active-class="text-[#FFCC00]"
         >
+          <component :is="item.icon" class="w-4 h-4" />
           <span class="text-sm font-semibold">{{ item.label }}</span>
           <span
             class="absolute bottom-[-4px] left-0 w-0 h-0.5 bg-[#FFCC00] group-hover:w-full transition-all duration-300"
           ></span>
-        </a>
+        </RouterLink>
+
+        <button
+          @click="$emit('logout')"
+          class="flex items-center gap-1.5 text-white text-sm font-semibold hover:text-[#FFCC00] transition-colors duration-200"
+          title="Cerrar sesión"
+        >
+          <LogOut class="w-4 h-4" />
+          <span>Salir</span>
+        </button>
       </nav>
     </div>
   </header>
