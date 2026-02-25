@@ -147,9 +147,12 @@ const asesorChartData      = computed(() => makeChartData(asesorAgregada.value))
 const descripcionChartData = computed(() => makeChartData(descripcionAgregada.value))
 
 // ── Fábrica de ChartOptions ───────────────────────────────────────────────────
-function makeOptions(onClickCb?: (_idx: number) => void): ChartOptions<'bar'> {
+function makeOptions(
+  onClickCb?: (_idx: number) => void,
+  isVertical = false,
+): ChartOptions<'bar'> {
   return {
-    indexAxis: 'y',
+    indexAxis: isVertical ? 'x' : 'y',
     responsive: true,
     maintainAspectRatio: false,
     onClick(_e, elements) {
@@ -161,14 +164,28 @@ function makeOptions(onClickCb?: (_idx: number) => void): ChartOptions<'bar'> {
     },
     plugins: {
       legend: { display: false },
-      tooltip: { callbacks: { label: ctx => `  ${formatMXNFull(ctx.parsed.x)}` } },
+      tooltip: {
+        callbacks: {
+          label: ctx => `  ${formatMXNFull(isVertical ? ctx.parsed.y : ctx.parsed.x)}`,
+        },
+      },
     },
     scales: {
-      x: {
+      x: isVertical ? {
+        // vertical → categorías en X con labels rotadas
+        grid: { display: false }, border: { display: false },
+        ticks: { font: { size: 11 }, color: '#374151', maxRotation: 30, minRotation: 20 },
+      } : {
+        // horizontal → valores en X
         grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
         ticks: { callback: v => formatMXN(Number(v)), font: { size: 10 }, color: '#9CA3AF', maxTicksLimit: 5 },
       },
-      y: {
+      y: isVertical ? {
+        // vertical → valores en Y
+        grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
+        ticks: { callback: v => formatMXN(Number(v)), font: { size: 10 }, color: '#9CA3AF', maxTicksLimit: 5 },
+      } : {
+        // horizontal → categorías en Y
         grid: { display: false }, border: { display: false },
         ticks: { font: { size: 11 }, color: '#374151' },
       },
@@ -176,10 +193,16 @@ function makeOptions(onClickCb?: (_idx: number) => void): ChartOptions<'bar'> {
   }
 }
 
-const mainChartOptions = computed(() => makeOptions((idx) => {
-  if (currentLevel.value === 0) selectedPlaza.value  = [...plazaAgregada.value.keys()][idx]
-  else if (currentLevel.value === 1) selectedTienda.value = [...tiendaAgregada.value.keys()][idx]
-}))
+// Nivel 0 (plazas) → barras verticales centradas; niveles 1-2 → horizontales
+const mainChartOptions = computed(() =>
+  makeOptions(
+    (idx) => {
+      if (currentLevel.value === 0) selectedPlaza.value  = [...plazaAgregada.value.keys()][idx]
+      else if (currentLevel.value === 1) selectedTienda.value = [...tiendaAgregada.value.keys()][idx]
+    },
+    currentLevel.value === 0,   // isVertical solo en vista plazas
+  ),
+)
 
 // Asesor y Descripción: sin drill-down
 const secondaryChartOptions = makeOptions()
@@ -333,7 +356,12 @@ function rankClass(i: number) {
                 {{ hintText }}
               </div>
             </div>
-            <div class="flex-1 overflow-y-auto px-4 py-3">
+            <!-- Nivel plazas: barras verticales → llenan el panel sin scroll -->
+            <div v-if="currentLevel === 0" class="flex-1 min-h-0 px-4 py-3">
+              <Bar :data="mainChartData" :options="mainChartOptions" style="height:100%;width:100%" />
+            </div>
+            <!-- Niveles tienda/empleado: barras horizontales → scroll si hay muchas -->
+            <div v-else class="flex-1 overflow-y-auto px-4 py-3">
               <div :style="{ height: `${Math.max(200, cantidadBarras * 36)}px` }">
                 <Bar :data="mainChartData" :options="mainChartOptions" />
               </div>
