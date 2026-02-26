@@ -46,21 +46,36 @@ export const buscarPorTienda = (tienda) => fetchMovimientos({ tienda })
 
 export const buscarPorRegion = (plaza) => fetchMovimientos({ plaza })
 
-export const subirCSV = async (file) => {
-  const formData = new FormData()
-  formData.append('file', file)
+export const subirCSV = (file, onProgress) => {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData()
+    formData.append('file', file)
 
-  const response = await fetch(`${API_URL}/movimientos/upload`, {
-    method: 'POST',
-    headers: { ...getAuthHeaders() },
-    body: formData,
+    const xhr = new XMLHttpRequest()
+
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          onProgress(Math.round((e.loaded / e.total) * 100))
+        }
+      })
+    }
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status === 401) { handleUnauthorized(); return }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText)) }
+        catch { resolve({ message: 'Carga exitosa.' }) }
+      } else {
+        reject(new Error(`Error ${xhr.status}: ${xhr.statusText}`))
+      }
+    })
+
+    xhr.addEventListener('error', () => reject(new Error('Error de red al subir el archivo.')))
+
+    const token = localStorage.getItem(TOKEN_KEY)
+    xhr.open('POST', `${API_URL}/movimientos/upload`)
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.send(formData)
   })
-  if (response.status === 401) {
-    handleUnauthorized()
-    return
-  }
-  if (!response.ok) {
-    throw new Error(`Error ${response.status}: ${response.statusText}`)
-  }
-  return response.json()
 }

@@ -17,8 +17,10 @@ import { useAuthStore } from '../stores/auth'
 import { useRouter } from 'vue-router'
 import {
   ArrowLeft, BarChart2, TrendingUp, Hash,
-  ChevronRight, ChevronDown, MousePointerClick, Users, Tag, X,
+  ChevronRight, ChevronDown, MousePointerClick, Users, Tag, X, Presentation,
 } from 'lucide-vue-next'
+import { toJpeg } from 'html-to-image'
+import PptxGenJS from 'pptxgenjs'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -40,6 +42,8 @@ const loading        = ref(true)
 const error          = ref('')
 const selectedPlaza  = ref<string | null>(null)
 const selectedTienda = ref<string | null>(null)
+const dashboardRef   = ref<HTMLElement | null>(null)
+const exportando     = ref(false)
 
 // ── Filtros globales ──────────────────────────────────────────────────────────
 const selectedMes       = ref<number>(0)   // 0 = todos
@@ -301,6 +305,88 @@ function rankClass(i: number) {
   if (i === 2) return 'bg-orange-400 text-white'
   return 'bg-gray-100 text-gray-500'
 }
+
+// ── Exportar a PowerPoint ─────────────────────────────────────────────────────
+async function exportarPPT() {
+  if (!dashboardRef.value || exportando.value) return
+  exportando.value = true
+
+  try {
+    // Capturar el contenido visible (soporta oklch / Tailwind v4)
+    const imgData = await toJpeg(dashboardRef.value, {
+      quality: 0.92,
+      backgroundColor: '#F2F4F7',
+      pixelRatio: 1.5,
+    })
+
+    // Calcular ratio real del elemento capturado
+    const { offsetWidth: w, offsetHeight: h } = dashboardRef.value
+    const ratio = h / w
+
+    const pptx = new PptxGenJS()
+    pptx.layout = 'LAYOUT_WIDE' // 13.33 × 7.5 in
+
+    const slide = pptx.addSlide()
+    slide.background = { color: 'F2F4F7' }
+
+    // Cabecera
+    slide.addText('Dashboard de Ventas — Análisis de Incentivos', {
+      x: 0.3, y: 0.1, w: 12.73, h: 0.45,
+      fontSize: 16, bold: true, color: 'D50000', fontFace: 'Calibri',
+    })
+
+    const nivel = ['Todas las plazas', selectedPlaza.value ?? '', selectedTienda.value ?? '']
+      .filter(Boolean).join(' › ')
+    slide.addText(nivel, {
+      x: 0.3, y: 0.52, w: 9, h: 0.3,
+      fontSize: 10, color: '6B7280', fontFace: 'Calibri',
+    })
+
+    const fecha = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })
+    slide.addText(fecha, {
+      x: 10, y: 0.52, w: 3.03, h: 0.3,
+      fontSize: 10, color: '9CA3AF', align: 'right', fontFace: 'Calibri',
+    })
+
+    // Imagen del dashboard
+    const imgH = Math.min(6.5, 12.73 * ratio)
+    slide.addImage({ data: imgData, x: 0.3, y: 0.95, w: 12.73, h: imgH })
+
+    // Pie de página
+    slide.addText('Generado con Dashboard AP', {
+      x: 0.3, y: 7.2, w: 12.73, h: 0.25,
+      fontSize: 8, color: 'D1D5DB', align: 'center', fontFace: 'Calibri',
+    })
+
+    const nombreArchivo = `Reporte_AP_${new Date().toLocaleDateString('es-MX').replace(/\//g, '-')}.pptx`
+
+    // Descarga robusta: primero intenta writeFile, si falla usa blob manual
+    try {
+      await pptx.writeFile({ fileName: nombreArchivo })
+    } catch {
+      const base64 = await pptx.write('base64') as string
+      const bytes   = atob(base64)
+      const arr     = new Uint8Array(bytes.length)
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i)
+      const blob = new Blob([arr], {
+        type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      })
+      const url = URL.createObjectURL(blob)
+      const a   = document.createElement('a')
+      a.href     = url
+      a.download = nombreArchivo
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 200)
+    }
+  } catch (err) {
+    console.error('Error al exportar PPT:', err)
+    alert('No se pudo generar el PowerPoint. Abre la consola (F12) para ver el error.')
+  } finally {
+    exportando.value = false
+  }
+}
 </script>
 
 <template>
@@ -411,11 +497,35 @@ function rankClass(i: number) {
           <ArrowLeft class="w-3.5 h-3.5" />
           Volver
         </button>
+
+        <!-- Botón exportar PPT -->
+        <button
+          @click="exportarPPT"
+          :disabled="exportando || loading || movimientos.length === 0"
+          class="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 shadow-sm overflow-hidden"
+          :class="exportando
+            ? 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed'
+            : 'bg-[#D50000] border border-[#B00000] text-white hover:bg-[#B00000] active:scale-95 cursor-pointer'"
+          title="Exportar gráficas a PowerPoint"
+        >
+          <!-- Brillo animado al hacer hover -->
+          <span
+            class="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity duration-200 pointer-events-none rounded-lg"
+          />
+          <template v-if="exportando">
+            <span class="w-3.5 h-3.5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            Exportando…
+          </template>
+          <template v-else>
+            <Presentation class="w-3.5 h-3.5 flex-shrink-0" />
+            Exportar PPT
+          </template>
+        </button>
       </div>
     </div>
 
     <!-- ── Contenido ─────────────────────────────────────────────────────── -->
-    <main class="flex-1 p-4 pt-4 space-y-4">
+    <main ref="dashboardRef" class="flex-1 p-4 pt-4 space-y-4">
 
       <!-- Loading / error / vacío -->
       <div v-if="loading" class="flex items-center justify-center py-32">
