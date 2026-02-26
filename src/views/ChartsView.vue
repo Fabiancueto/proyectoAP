@@ -17,7 +17,7 @@ import { useAuthStore } from '../stores/auth'
 import { useRouter } from 'vue-router'
 import {
   ArrowLeft, BarChart2, TrendingUp, Hash,
-  ChevronRight, MousePointerClick, Users, Tag,
+  ChevronRight, ChevronDown, MousePointerClick, Users, Tag, X,
 } from 'lucide-vue-next'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
@@ -40,6 +40,31 @@ const loading        = ref(true)
 const error          = ref('')
 const selectedPlaza  = ref<string | null>(null)
 const selectedTienda = ref<string | null>(null)
+
+// ── Filtros globales ──────────────────────────────────────────────────────────
+const selectedMes       = ref<number>(0)   // 0 = todos
+const selectedAño       = ref<number>(0)   // 0 = todos
+const selectedIncentivo = ref<string>('')  // '' = todos
+
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
+function getFechaYear(fecha: string): number {
+  const d = new Date(fecha)
+  return isNaN(d.getTime()) ? 0 : d.getFullYear()
+}
+function getFechaMonth(fecha: string): number {
+  const d = new Date(fecha)
+  return isNaN(d.getTime()) ? 0 : d.getMonth() + 1
+}
+
+const hayFiltrosActivos = computed(() =>
+  !!(selectedMes.value || selectedAño.value || selectedIncentivo.value),
+)
+function limpiarFiltros() {
+  selectedMes.value = 0
+  selectedAño.value = 0
+  selectedIncentivo.value = ''
+}
 
 // 0 = plazas | 1 = tiendas | 2 = empleados
 const currentLevel = computed(() => {
@@ -91,18 +116,40 @@ const formatMXN = (v: number) =>
 const formatMXNFull = (v: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v)
 
+// ── Opciones disponibles para los filtros ─────────────────────────────────────
+const añosDisponibles = computed(() => {
+  const years = new Set<number>()
+  for (const m of movimientos.value) { const y = getFechaYear(m.fecha); if (y) years.add(y) }
+  return [...years].sort((a, b) => b - a)
+})
+const mesesDisponibles = [1,2,3,4,5,6,7,8,9,10,11,12]
+const incentivosDisponibles = computed(() => {
+  const types = new Set<string>()
+  for (const m of movimientos.value) { const d = m.descripcion?.trim(); if (d) types.add(d) }
+  return [...types].sort()
+})
+
+// ── Base con filtros globales (mes / año / tipo incentivo) ────────────────────
+const baseMovimientos = computed(() => {
+  let f = movimientos.value
+  if (selectedAño.value)       f = f.filter(m => getFechaYear(m.fecha)  === selectedAño.value)
+  if (selectedMes.value)       f = f.filter(m => getFechaMonth(m.fecha) === selectedMes.value)
+  if (selectedIncentivo.value) f = f.filter(m => (m.descripcion?.trim() || '') === selectedIncentivo.value)
+  return f
+})
+
 // ── Filtro contextual según nivel activo ──────────────────────────────────────
 const ctxMovimientos = computed(() => {
-  let f = movimientos.value
+  let f = baseMovimientos.value
   if (selectedPlaza.value)  f = f.filter(m => (m.plaza?.trim()  || 'N/D') === selectedPlaza.value)
   if (selectedTienda.value) f = f.filter(m => (m.tienda?.trim() || 'N/D') === selectedTienda.value)
   return f
 })
 
 // ── Agregaciones drill-down ───────────────────────────────────────────────────
-const plazaAgregada    = computed(() => agregaPor(movimientos.value, m => m.plaza))
+const plazaAgregada    = computed(() => agregaPor(baseMovimientos.value, m => m.plaza))
 const tiendaAgregada   = computed(() => selectedPlaza.value
-  ? agregaPor(movimientos.value.filter(m => (m.plaza?.trim() || 'N/D') === selectedPlaza.value), m => m.tienda)
+  ? agregaPor(baseMovimientos.value.filter(m => (m.plaza?.trim() || 'N/D') === selectedPlaza.value), m => m.tienda)
   : new Map<string, number>())
 const empleadoAgregada = computed(() => (selectedPlaza.value && selectedTienda.value)
   ? agregaPor(ctxMovimientos.value, m => m.empleado)
@@ -292,6 +339,53 @@ function rankClass(i: number) {
             </template>
           </div>
         </div>
+      </div>
+
+      <!-- Filtros centrados -->
+      <div class="flex items-center gap-2">
+
+        <!-- Mes -->
+        <div class="relative">
+          <select v-model="selectedMes"
+            class="appearance-none rounded-lg px-3 py-1.5 pr-7 text-xs font-medium cursor-pointer transition-colors focus:outline-none border"
+            :class="selectedMes ? 'bg-red-50 border-red-200 text-[#D50000]' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'">
+            <option :value="0">Mes</option>
+            <option v-for="m in mesesDisponibles" :key="m" :value="m">{{ MESES[m - 1] }}</option>
+          </select>
+          <ChevronDown class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
+            :class="selectedMes ? 'text-[#D50000]' : 'text-gray-400'" />
+        </div>
+
+        <!-- Año -->
+        <div class="relative">
+          <select v-model="selectedAño"
+            class="appearance-none rounded-lg px-3 py-1.5 pr-7 text-xs font-medium cursor-pointer transition-colors focus:outline-none border"
+            :class="selectedAño ? 'bg-red-50 border-red-200 text-[#D50000]' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'">
+            <option :value="0">Año</option>
+            <option v-for="a in añosDisponibles" :key="a" :value="a">{{ a }}</option>
+          </select>
+          <ChevronDown class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
+            :class="selectedAño ? 'text-[#D50000]' : 'text-gray-400'" />
+        </div>
+
+        <!-- Tipo de incentivo -->
+        <div class="relative">
+          <select v-model="selectedIncentivo"
+            class="appearance-none rounded-lg px-3 py-1.5 pr-7 text-xs font-medium cursor-pointer transition-colors focus:outline-none border max-w-[170px]"
+            :class="selectedIncentivo ? 'bg-red-50 border-red-200 text-[#D50000]' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'">
+            <option value="">Tipo de incentivo</option>
+            <option v-for="t in incentivosDisponibles" :key="t" :value="t">{{ t }}</option>
+          </select>
+          <ChevronDown class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
+            :class="selectedIncentivo ? 'text-[#D50000]' : 'text-gray-400'" />
+        </div>
+
+        <!-- Limpiar filtros -->
+        <button v-if="hayFiltrosActivos" @click="limpiarFiltros"
+          class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-[#D50000] hover:bg-red-50 transition-colors border border-transparent hover:border-red-100">
+          <X class="w-3 h-3" />
+          Limpiar
+        </button>
       </div>
 
       <!-- KPIs + botón volver -->
